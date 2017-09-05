@@ -1,18 +1,20 @@
 classdef CSaveAsGif
-    properties (GetAccess = public, SetAccess = private)
+    properties (GetAccess = private, SetAccess = private)
         fileName;
         gifDelayTime;
         format;
+        fig;
     end
     methods (Access = public)
-        function obj = CSaveAsGif(fn, dt)
+        function obj = CSaveAsGif(fn, fig, dt)
             obj.fileName = strcat('../gif/',fn);
             obj.gifDelayTime = dt;
             obj.format = 'gif' ;
+            obj.fig = fig;
             obj.SaveGif(1);
         end
         function [ ] = SaveGif( obj, create )
-            frame = getframe(1);
+            frame = getframe(obj.fig);
             im = frame2im(frame);
             [imind, cm] = rgb2ind(im, 256, 'dither');
             if nargin == 1
