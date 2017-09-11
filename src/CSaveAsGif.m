@@ -1,18 +1,26 @@
 classdef CSaveAsGif
     properties(Access = private)
-        fileName;
-        gifDelayTime;
+        fileName = 'task';
+        gifDelayTime = 0;
         format = 'gif';
         path = '../gif/';
     end
     properties
-        F_ind;
+        F_ind = 1;
     end
     methods
         function obj = CSaveAsGif(fn, f_ind, dt)
-            obj.fileName = obj.GetFullFileName(fn);
-            obj.gifDelayTime = dt;
-            obj.F_ind = f_ind;
+            if nargin == 1
+                obj.fileName = obj.GetFullFileName(fn);
+            else
+                obj.fileName = obj.GetFullFileName(obj.fileName);
+            end
+            if nargin == 2
+                obj.F_ind = f_ind;
+            end
+            if nargin == 3
+                obj.gifDelayTime = dt;
+            end
             obj.SaveGif(1);
         end
         function [ ] = SaveGif( obj, create )
