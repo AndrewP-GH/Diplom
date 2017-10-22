@@ -23,7 +23,7 @@ NewFigure('Прямая задача');
 
 W = 0.2*sin(pi*X);	    %начальное распределение точек листа
 V = zeros(1,Nx);        %начальное распределение скорости листа
-U = pi*0.2*cos(pi*X);
+U = -pi*pi*0.2*sin(pi*X);
 
 P = [ W; V; U];
 P(:,1) = 0;             %граничное левое
@@ -76,13 +76,14 @@ end
 f = NewFigure('Обратная задача');
 figure(f);
 %axis([0 Lx -2.5 1.5]);
-q1 = zeros(1,Nx);
-q2 = zeros(1,Nx);
-for i = 2:Nx-1
-    q1(i) = q1(i) + Ro*V0*(P(2,i+1)-P(2,i-1))/(2*dx);
-    q2(i) = -Ro*(P(2,i)+V0*(P(1,i+1)-P(1,i-1))/(2*dx));
-end
-q1 = P(2,:) .* P(2,:);
+% q1 = zeros(1,Nx);
+% q2 = zeros(1,Nx);
+% for i = 2:Nx-1
+%     q1(i) = q1(i) + Ro*V0*(P(2,i+1)-P(2,i-1))/(2*dx);
+%     q2(i) = -Ro*(P(2,i)+V0*(P(1,i+1)-P(1,i-1))/(2*dx));
+% end
+q1 = P(3,:) .* P(3,:);
+q2 = P(1,:) .* P(1,:);
 % for i = 2:Nx-1
 %     q1(i) = q1(1) + Ro*V0*P(2,i);
 %     q2(i) = -Ro*(P(2,i)+V0*(P(1,i+1)-P(1,i-1))/(2*dx));
@@ -115,7 +116,7 @@ Alpha = zeros(2,2,Nx);
 Beta = zeros(2,1,Nx);
 for t=T:dt:0-dt
     F = [ Q(1,:); Q(2,:)];
-    for i=3:Nx
+    for i=2:Nx
         Alpha(:,:,i) = -(A*Alpha(:,:,i-1)+B)\C;
         Beta(:,:,i) = (A*Alpha(:,:,i-1)+B)\(F(:,i-1)-A*Beta(:,:,i-1));
     end
