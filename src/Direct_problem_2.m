@@ -4,7 +4,7 @@ V0 = 1;
 c = sqrt(2);
 T0 = 1;
 dx = 0.01;
-dt = 0.0001/2;
+dt = 0.01;
 Lx = 1;
 D = 1;
 S = Lx;
@@ -13,7 +13,7 @@ m = ro*S;
 val_g = 0;
 g = @(t,val) 0;
 g_max = 1/m;
-T = 0.01;
+T = 1;
 X = 0:dx:Lx;
 Nx = size(X,2);
 littel_beta = 0.1;
@@ -116,7 +116,7 @@ C = [
 grid on;
 hold all;
 p4 = plot(0,0, 'w');
-%p5 = plot(X,Q(1,:));
+p5 = plot(X,Q(1,:));
 p6 = plot(X,Q(2,:));
 %set (p1,'LineWidth', 4);
 legend(['t=' num2str(T,tFormatStr)],'q1','q2');
@@ -133,7 +133,7 @@ for t=T:dt:0-dt
     for i=Nx-1:-1:2
         Q(:,i) = Alpha(:,:,i+1)*Q(:,i+1)+Beta(:,:,i+1);
     end
-%    set (p5, 'Xdata', X, 'Ydata', Q(1,:));
+    set (p5, 'Xdata', X, 'Ydata', Q(1,:));
     set (p6, 'Xdata', X, 'Ydata', Q(2,:));
     legend(['t=' num2str(t+dt,tFormatStr)],'q1','q2');
 %     pause(1);
