@@ -51,7 +51,7 @@ C = [
     ];
 
 hold all;
-axis([0 Lx 0 0.2]);
+%axis([0 Lx 0 0.2]);
 grid on;
 p0 = plot(0,0, 'w');
 p1 = plot(X,P(1,:));
@@ -62,7 +62,6 @@ drawnow;
 SaveAsGif(filename, gifDelayTime, 0);
 for t=0:dt:T-dt
     F = [ P(1,:); P(2,:) + g(t,val_g)*dt; zeros(1,Nx) ];
-    Alpha(:,:,2) = [ 0 0 0; 0 0 0; 0 2/(dx^2) 0];
     for i=3:Nx
         Alpha(:,:,i) = -(A*Alpha(:,:,i-1)+B)\C;
         Beta(:,:,i) = (A*Alpha(:,:,i-1)+B)\(F(:,i-1)-A*Beta(:,:,i-1));
@@ -81,17 +80,14 @@ end
 f = NewFigure('Обратная задача');
 figure(f);
 %axis([0 Lx -1 1]);
-q1 = P(3,:)*(T0+ro*V0^2);
+q1 = P(3,:)*(T0+ro*V0^2)+ ro*V0*P(2,:);
 q2 = zeros(1,Nx);
+q2(1) = -ro*(P(2,1)+V0*(P(1,2)-P(1,1))/dx);
+q2(Nx) = -ro*(P(2,Nx)+V0*(P(1,Nx)-P(1,Nx-1))/dx);
 for i = 2:Nx-1
-    q1(i) = q1(i) + ro*V0*(P(2,i+1)-P(2,i-1))/(2*dx);
     q2(i) = -ro*(P(2,i)+V0*(P(1,i+1)-P(1,i-1))/(2*dx));
 end
-% for i = 1:Nx
-%     q1(i) = q1(1) + ro*V0*P(2,i)/dx;
-%     q2(i) = -ro*(P(2,i)+V0*P(1,i)/dx);
-% end;
-Q = [q1; q2; zeros(1,Nx)]; %-ones(1,Nx)
+Q = [q1; q2; zeros(1,Nx)];
 Q(:,1) = 0;
 Q(:,Nx) = 0;
 Alpha = zeros(3,3,Nx);
@@ -121,7 +117,7 @@ p6 = plot(X,Q(2,:));
 %set (p1,'LineWidth', 4);
 legend(['t=' num2str(T,tFormatStr)],'q1','q2');
 drawnow;
-pause(20);
+pause(5);
 for t=T:dt:0-dt
     F = [ Q(1,:); Q(2,:); zeros(1,Nx) ];
     for i=3:Nx
