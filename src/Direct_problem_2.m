@@ -1,3 +1,4 @@
+close all;
 clearvars;
 tFormatStr = '%.3f';
 V0 = 1;
@@ -60,10 +61,13 @@ legend(['t=' num2str(0,tFormatStr)],'W');
 set (p1, 'Xdata', X, 'Ydata', P(1,:));
 drawnow;  
 SaveAsGif(filename, gifDelayTime, 0);
+
+for i=3:Nx
+    Alpha(:,:,i) = -(A*Alpha(:,:,i-1)+B)\C;
+end
 for t=0:dt:T-dt
     F = [ P(1,:); P(2,:) + g(t,val_g)*dt; zeros(1,Nx) ];
     for i=3:Nx
-        Alpha(:,:,i) = -(A*Alpha(:,:,i-1)+B)\C;
         Beta(:,:,i) = (A*Alpha(:,:,i-1)+B)\(F(:,i-1)-A*Beta(:,:,i-1));
     end
     for i=Nx-1:-1:2
@@ -82,10 +86,10 @@ figure(f);
 %axis([0 Lx -1 1]);
 q1 = P(3,:)*(T0+ro*V0^2)+ ro*V0*P(2,:);
 q2 = zeros(1,Nx);
-q2(1) = -ro*(P(2,1)+V0*(P(1,2)-P(1,1))/dx);
-q2(Nx) = -ro*(P(2,Nx)+V0*(P(1,Nx)-P(1,Nx-1))/dx);
+q2(1) = -ro*(V0*(P(1,2)-P(1,1))/dx);
+q2(Nx) = -ro*(V0*(P(1,Nx)-P(1,Nx-1))/dx);
 for i = 2:Nx-1
-    q2(i) = -ro*(P(2,i)+V0*(P(1,i+1)-P(1,i-1))/(2*dx));
+    q2(i) = -ro*(V0*(P(1,i+1)-P(1,i-1))/(2*dx));
 end
 Q = [q1; q2; zeros(1,Nx)];
 Q(:,1) = 0;
@@ -118,14 +122,16 @@ p6 = plot(X,Q(2,:));
 legend(['t=' num2str(T,tFormatStr)],'q1','q2');
 drawnow;
 pause(5);
+
+Alpha(:,:,2) = [ 0 0 0; 0 0 0; 0 2/(dx^2) 0 ];
+for i=3:Nx
+    Alpha(:,:,i) = -(A*Alpha(:,:,i-1)+B)\C;
+end
 for t=T:dt:0-dt
     F = [ Q(1,:); Q(2,:); zeros(1,Nx) ];
     for i=3:Nx
-        Alpha(:,:,i) = -(A*Alpha(:,:,i-1)+B)\C;
         Beta(:,:,i) = (A*Alpha(:,:,i-1)+B)\(F(:,i-1)-A*Beta(:,:,i-1));
     end
-    %Alpha(:,:,Nx) = zeros(3,3);
-    %Beta(:,:,Nx) = zeros(3,1);
     for i=Nx-1:-1:2
         Q(:,i) = Alpha(:,:,i+1)*Q(:,i+1)+Beta(:,:,i+1);
     end
@@ -136,17 +142,17 @@ for t=T:dt:0-dt
     drawnow;
 end
 
-temp_g=0;
-for i=1:1:Nx-1
-    temp_g = temp_g + (Q(2,i)+Q(2,i+1))/2*dx;
-end
-temp_g=temp_g/(2*littel_beta);
-if (temp_g<0)
-    val_g = 0;
-else
-    if (temp_g>g_max)
-        val_g = g_max;
-    else
-        val_g = temp_g;
-    end
-end
+% temp_g=0;
+% for i=1:1:Nx-1
+%     temp_g = temp_g + (Q(2,i)+Q(2,i+1))/2*dx;
+% end
+% temp_g=temp_g/(2*littel_beta);
+% if (temp_g<0)
+%     val_g = 0;
+% else
+%     if (temp_g>g_max)
+%         val_g = g_max;
+%     else
+%         val_g = temp_g;
+%     end
+% end
