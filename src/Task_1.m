@@ -70,7 +70,7 @@ for t=0:dt:T-dt
         P(:,i) = Alpha(:,:,i+1)*P(:,i+1)+Beta(:,1,i+1);
     end
     set (p1, 'Xdata', X, 'Ydata', P(1,:));
-    legend(['t=' num2str(t+dt,tFormatStr)],'W');
+    legend(['t=' num2str(t+dt,tFormatStr)],'Полотно');
     drawnow;  
 end
 
