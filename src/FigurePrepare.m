@@ -1,4 +1,4 @@
-function [p_1, p_2] = FigurePrepare(Figure, X, useTitle)
+function [p_1, p_2] = FigurePrepare(Figure, X)
     clf(Figure);
     hold all;
     grid on;
@@ -7,7 +7,8 @@ function [p_1, p_2] = FigurePrepare(Figure, X, useTitle)
     p_2 = plot(0,0);        %дескриптор линии 2
     p_1.XData = X;
     p_2.XData = X;
-    if useTitle == true
+    global CalcExtrems
+    if CalcExtrems == true
         title({
         ' '
         ' '
