@@ -1,8 +1,7 @@
 clearvars; clc; close all;
 Figure = NewFigure('Бумага');
-hold all;
-grid on;
-%% Params
+
+%% Общие параметры задачи
 global FormatStr        %формат вывода времени на графике
 FormatStr = '%.3f';
 V_0 = 1;                %продольная скорость движения пластины
@@ -25,14 +24,12 @@ g_max = g_max/m;
 val_g = 0;              %начальное управление
 g = @(t, val) 0;        %управляющая функция
 
-%% Решение задачи
-axis([0 L_x -0.5 0.5]);
-
+%% Параметры прямой задачи
 p_0 = 0.2*sin(pi*X);	%начальное распределение точек листа
 p_1 = zeros(1,Nx);      %начальное распределение скорости листа
-L = zeros(2,2,Nx);      %прогоночные коэффициенты
-M = zeros(2,1,Nx);      %прогоночные коэффициенты
-P = [p_0; p_1];         %векторзначений (W, V)
+L = zeros(2,2,Nx);      %прогоночные коэффициенты прямой задачи
+M = zeros(2,1,Nx);      %прогоночные коэффициенты прямой задачи
+P = [p_0; p_1];         %вектор значений (W, V)
 P(:,1) = 0;             %граничное левое
 P(:,Nx) = 0;            %граничное правое
 
@@ -51,15 +48,35 @@ for i = 4:Nx
     L(:,:,i) = -(A_i * L(:,:,i-1) + B_i) \ C_i;
 end
 
-plot(0,0, 'w');     %для отображения времени в легенде
+%% Параметры обратной задачи
+dt_ = -dt;
+nu = dt_ / (dx^2);
+A_i_ =  [   0 nu*(-V_C);
+            0 -V_0*dt_/dx
+        ];
+B_i_ =  [   1 -2*nu*(-V_C);
+            dt_ 1
+        ];
+C_i_ =  [   0 nu*(-V_C);
+            0 V_0*dt_/dx
+        ];
+L_ = zeros(2,2,Nx);     %прогоночные коэффициенты обратной задачи
+M_ = zeros(2,1,Nx);     %прогоночные коэффициенты обратной задачи
+Q = zeros(2,Nx);        %вектор значений (q_1, q_2)
 
+L_(:,:,2) = [   0   (V_0*2/dx*V_C) / (V_0/dt_ - V_C/dx);
+                0   0
+            ];
+for i = 3:Nx
+    L_(:,:,i) = -(A_i_ * L_(:,:,i-1) + B_i_) \ C_i_;
+end
+    
 %% Вычисление прямой задачи
-p_1 = plot(X,P(1,:));
+[p_1, p_2] = FigurePrepare(Figure, X, true);
 p_1.LineWidth = 3;
-p_2 = plot(X,P(2,:));
+SetTwoLinesInPlots(p_1, p_2, P, 0, 'W', 'V');
 Min = 0; Max = 0;
-[Min, Max] = LocalExtrems(P, Min, Max);
-Legend(0, 'W', 'V');
+[Min, Max] = LocalExtrems(P, Min, Max, 1, 'W');
 
 for t = 0:dt:T-dt
     F = [   P(1,:); 
@@ -72,11 +89,43 @@ for t = 0:dt:T-dt
     for i = Nx-1:-1:2
         P(:,i) = L(:,:,i+1) * P(:,i+1) + M(:,:,i+1);
     end
-    p_1.YData = P(1,:);
-    p_2.YData = P(2,:);
-    drawnow;
-    Legend(t+dt, 'W', 'V');
-    [Min, Max] = LocalExtrems(P, Min, Max);
+    SetTwoLinesInPlots(p_1, p_2, P, t+dt, 'W', 'V');
+    [Min, Max] = LocalExtrems(P, Min, Max, 1, 'W');
 end
 
 %% Вычисление обратной задачи
+[p_1, p_2] = FigurePrepare(Figure, X, false);
+Q(1,2:Nx-1) = V_0 * ( ...
+    (T_0 + Ro*V_0) * (P(1,1:Nx-2) - 2*P(1,2:Nx-1) + P(1,3:Nx))/dx^2 ...     
+    + Ro*(P(2,3:Nx) - P(2,1:Nx-2))/(2*dx) ...                               
+    );
+Q(2,2:Nx-1) = -Ro * ( ...
+    P(2,2:Nx-1) ...
+    + V_0*(P(1,3:Nx) - P(1,1:Nx-2))/(2*dx) ...                              
+    );
+Q(1:1) = V_0 * ( ...
+    (T_0 + Ro*V_0) * (2*P(1,1) - 5*P(1,2) + 4*P(1,3) - P(1,4))/dx^2 ...     
+    + Ro*(-3/2*P(2,1) + 2*P(2,2) - 1/2*P(2,3))/dx ...                       
+    );
+Q(2,1) = 0;
+Q(1,Nx) = V_0 * ( ...
+    (T_0 + Ro*V_0) * (2*P(1,Nx) - 5*P(1,Nx-1) + 4*P(1,Nx-2) - P(1,Nx-3))/dx^2 ...
+    + Ro*(3/2*P(2,Nx) - 2*P(2,Nx-1) + 1/2*P(2,Nx-2))/dx ...
+    );
+Q(2,Nx) = 0;
+
+SetTwoLinesInPlots(p_1, p_2, Q, T, 'q1', 'q2');
+[Min, Max] = LocalExtrems(Q, Min, Max, 1, 'W');
+for t=T:dt_:0-dt_
+    F = [ Q(1,:); Q(2,:)];
+    
+%     for i=3:Nx
+%         Beta(:,1,i) = (A*Alpha(:,:,i-1)+B)\(F(:,i-1)-A*Beta(:,1,i-1));
+%     end
+    for i = Nx-1:-1:1
+        Q(:,i) = L(:,:,i+1) * Q(:,i+1) + M(:,:,i+1);
+    end
+    Q(2,1) = 0;
+    SetTwoLinesInPlots(p_1, p_2, Q, t+dt_, 'q1', 'q2');
+    [Min, Max] = LocalExtrems(Q, Min, Max, 1, 'q2');
+end

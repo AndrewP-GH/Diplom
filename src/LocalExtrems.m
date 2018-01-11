@@ -1,6 +1,6 @@
-function [Min, Max] = LocalExtrems( Values, Min, Max )
-    LocalMin = min(Values(1,:));
-    LocalMax = max(Values(1,:));
+function [Min, Max] = LocalExtrems( Values, Min, Max, Raw, Name )
+    LocalMin = min(Values(Raw,:));
+    LocalMax = max(Values(Raw,:));
     if LocalMin < Min
         Min = LocalMin;
     end
@@ -9,9 +9,9 @@ function [Min, Max] = LocalExtrems( Values, Min, Max )
     end
     global FormatStr;
     title({
-        ['Min (W) = ' num2str(Min,FormatStr)]
-        ['LocalMin (W) = ' num2str(LocalMin,FormatStr)]
-        ['Max (W) = ' num2str(Max,FormatStr)]
-        ['LocalMax (W) = ' num2str(LocalMax,FormatStr)]})
+        ['Min (' Name ') = ' num2str(Min,FormatStr)]
+        ['LocalMin (' Name ') = ' num2str(LocalMin,FormatStr)]
+        ['Max (' Name ') = ' num2str(Max,FormatStr)]
+        ['LocalMax (' Name ') = ' num2str(LocalMax,FormatStr)]})
 end
 
