@@ -1,5 +1,5 @@
-function [ ] = SaveAsGif( filename, gifDelayTime, add )
-    filename = strcat('../gif/',filename);
+function [ ] = SaveAsGif(folder, filename, gifDelayTime, add )
+    filename = strcat(folder, '/', filename);
     frame = getframe(1);
     im = frame2im(frame);
     [imind, cm] = rgb2ind(im, 256, 'dither');

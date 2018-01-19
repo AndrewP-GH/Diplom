@@ -8,4 +8,3 @@ function [ Ew ] = PaperFullEnergy( P, T_0, Ro, V_0)
     Wx = 1/2 * (T_0*Wx.^2 + Ro*(P(2,:) + V_0*Wx).^2);
     Ew = (sum(Wx)-1/2*(Wx(1)+Wx(Nx)))*dx;
 end
-
