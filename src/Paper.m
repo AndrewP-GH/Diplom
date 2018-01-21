@@ -35,6 +35,7 @@ folder = CreateImageFolder(datestr(now, 'dd-mmm-yyyy HH_MM_SS'));
 image_type = '.gif';
 image_name = 'tmp';
 save_gif = false;
+gif_delay = 1/24;
 
 %% Параметры прямой задачи
 P_0 = 0.2*sin(pi*X);	%начальное распределение точек листа
@@ -97,7 +98,7 @@ for k=1:iterations
     end
     image_name = num2str(k);
     if save_gif == true
-        SaveAsGif(folder, [image_name image_type], 1, 0);
+        SaveAsGif(folder, [image_name image_type], gif_delay, 0);
     end
     for t = 1:Nt-1
         F = [   P(1,:); 
@@ -119,7 +120,7 @@ for k=1:iterations
             [Min, Max] = LocalExtrems(P, Min, Max, 1, 'W');
         end
         if save_gif == true
-            SaveAsGif(folder, [image_name image_type], 1, 1);
+            SaveAsGif(folder, [image_name image_type], gif_delay, 1);
         end
     end
     disp([ 'Full energy Ew = ' num2str(PaperFullEnergy(P, T_0, Ro, V_0)) ]);
@@ -153,7 +154,7 @@ for k=1:iterations
         QH(Nt,:) = Q(2,:);
         image_name = ['q_' num2str(k)];
         if save_gif == true
-            SaveAsGif(folder, [image_name image_type], 1, 0);
+            SaveAsGif(folder, [image_name image_type], gif_delay, 0);
         end
         for t=Nt-1:-1:1
             F = [ Q(1,:); Q(2,:)];
@@ -175,7 +176,7 @@ for k=1:iterations
             end
             QH(t,:) = Q(2,:);
             if save_gif == true
-                SaveAsGif(folder, [image_name image_type], 1, 1);
+                SaveAsGif(folder, [image_name image_type], gif_delay, 1);
             end
         end
         SaveAsGif(folder, [image_name '_itog' image_type], 1, 0);
