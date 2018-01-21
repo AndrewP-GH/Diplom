@@ -1,4 +1,5 @@
 clearvars; clc; close all;
+addpath('./Functions');
 Figure = NewFigure('Бумага');
 
 %% Общие параметры задачи
