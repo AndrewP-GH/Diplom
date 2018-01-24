@@ -18,21 +18,22 @@ Ro = 1;                 %плотность материала пластины
 m = Ro*S;               %масса на единицу длины пластины
 T_0 = 1;                %продольное напряжение пластины (на единицу длины)
 
-T = 0.1;                  %время (верхняя граница)
+T = 1;                  %время (верхняя граница)
 Tarray = 0:dt:T;
 Nt = T/dt+1;            %число слоев повремени
 
 X = 0:dx:L_x;           %сетка по длине пластины
 Nx = size(X, 2);        %число узлов в сетке X
-g_max = 1;              %max управляющей функции
+g_max = 60;              %max управляющей функции
 i_1 = round(Nx/3);
 i_2 = round(Nx/3*2);
 iterations = 2;         %число итераций
 
 global CalcExtrems      %выводить минимум и максимум
 CalcExtrems = true;
+OnlyQ2 = true;
 
-folder = CreateImageFolder(datestr(now, 'dd-mmm-yyyy HH_MM_SS'));
+folder = CreateImageFolder([datestr(now, 'dd-mmm-yyyy HH_MM_SS') '_железо']);
 image_type = '.tiff';
 gif_type = '.gif';
 image_name = 'tmp';
@@ -108,8 +109,8 @@ for k=1:iterations
             ];
         Control(1,t+1) = AddControlInTwoPoints(QH(t,i_1), 1, g_max);
         Control(2,t+1) = AddControlInTwoPoints(QH(t,i_2), 2, g_max);
-        F = F + dx^2*dt*Control(1,t+1);
-        F = F + dx^2*dt*Control(2,t+1);
+        F(2,i_1) = F(2,i_1) + dx^2*dt*Control(1,t+1);
+        F(2,i_2) = F(2,i_2) + dx^2*dt*Control(2,t+1);
         M(:,:,3) = B_i \ F(:,2);
         for i = 4:Nx
             M(:,:,i) = -(A_i * L(:,:,i-1) + B_i) \ (A_i * M(:,:,i-1) - F(:,i-1));
@@ -127,29 +128,38 @@ for k=1:iterations
     end
     disp([ 'Full energy Ew = ' num2str(PaperFullEnergy(P, T_0, Ro, V_0)) ]);
     SaveAsGif(folder, [image_name '_itog' image_type], 1, 0);
-    
     %% Вычисление обратной задачи
     if k ~= iterations
         [p_1, p_2] = FigurePrepare(Figure, X);
-        Q(1,2:Nx-1) = V_0 * ( ...
-            (T_0 + Ro*V_0) * (P(1,1:Nx-2) - 2*P(1,2:Nx-1) + P(1,3:Nx))/dx^2 ...     
-            + Ro*(P(2,3:Nx) - P(2,1:Nx-2))/(2*dx) ...                               
+        axis([0 L_x -1 1]);
+        W_xx = (P(1,1:Nx-2) - 2*P(1,2:Nx-1) + P(1,3:Nx))/dx^2;
+        Q(1,2:Nx-1) = T_0*W_xx ...
+            + Ro*V_0 * ( ...
+                (P(2,3:Nx) - P(2,1:Nx-2))/(2*dx) ...
+                + V_0*W_xx ...                                  
             );
         Q(2,2:Nx-1) = -Ro * ( ...
-            P(2,2:Nx-1) ...
-            + V_0*(P(1,3:Nx) - P(1,1:Nx-2))/(2*dx) ...                              
+                P(2,2:Nx-1) + V_0*(P(1,3:Nx) - P(1,1:Nx-2))/(2*dx) ...                              
             );
-        Q(1:1) = V_0 * ( ...
-            (T_0 + Ro*V_0) * (2*P(1,1) - 5*P(1,2) + 4*P(1,3) - P(1,4))/dx^2 ...     
-            + Ro*(-3/2*P(2,1) + 2*P(2,2) - 1/2*P(2,3))/dx ...                       
+        W_xx = (2*P(1,1) - 5*P(1,2) + 4*P(1,3) - P(1,4))/dx^2;
+        Q(1:1) = T_0*W_xx ...
+            + Ro*V_0 * ( ...
+                (-3/2*P(2,1) + 2*P(2,2) - 1/2*P(2,3))/dx ...
+                + V_0*W_xx ...                                  
             );
         Q(2,1) = 0;
-        Q(1,Nx) = V_0 * ( ...
-            (T_0 + Ro*V_0) * (2*P(1,Nx) - 5*P(1,Nx-1) + 4*P(1,Nx-2) - P(1,Nx-3))/dx^2 ...
-            + Ro*(3/2*P(2,Nx) - 2*P(2,Nx-1) + 1/2*P(2,Nx-2))/dx ...
+        W_xx = (2*P(1,Nx) - 5*P(1,Nx-1) + 4*P(1,Nx-2) - P(1,Nx-3))/dx^2;
+        Q(1,Nx) = T_0*W_xx ...
+            + Ro*V_0 * ( ...
+                (3/2*P(2,Nx) - 2*P(2,Nx-1) + 1/2*P(2,Nx-2))/dx ...
+                + V_0*W_xx ...                                  
             );
         Q(2,Nx) = 0;
-        SetTwoLinesInPlots(p_1, p_2, Q, T, 'q1', 'q2');
+        if OnlyQ2 == true
+            SetTwoLinesInPlots(p_1, p_2, Q, T, 'q2');
+        else
+            SetTwoLinesInPlots(p_1, p_2, Q, T, 'q1', 'q2');
+        end
         if CalcExtrems == true
             [Min, Max] = LocalExtrems(Q, 0, 0, 2, 'q2');
         end
@@ -172,7 +182,11 @@ for k=1:iterations
                 Q(:,i) = L_(:,:,i+1) * Q(:,i+1) + M_(:,:,i+1);
             end
             Q(2,1) = 0;
-            SetTwoLinesInPlots(p_1, p_2, Q, (t-1)*dt, 'q1', 'q2');
+            if OnlyQ2 == true
+            	SetTwoLinesInPlots(p_1, p_2, Q, (t-1)*dt, 'q2');
+            else
+                SetTwoLinesInPlots(p_1, p_2, Q, (t-1)*dt, 'q1', 'q2');
+            end
             if CalcExtrems == true
                 [Min, Max] = LocalExtrems(Q, Min, Max, 2, 'q2');
             end

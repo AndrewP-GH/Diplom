@@ -1,146 +1,215 @@
-close all;
-clearvars;
+clearvars; clc; close all;
+addpath('./Functions');
+Figure = NewFigure('∆елезо');
 
-%% Params
-tFormatStr = '%.3f';    %формат вывода времени на графике
-V0 = 1;                 %продольна€ скорость движени€ пластины
-c = sqrt(2);            %C - скорость распространени€ волны
+%% ќбщие параметры задачи
+global FormatStr        %формат вывода времени на графике
+FormatStr = '%.3f';
+V_0 = 0.5;              %продольна€ скорость движени€ пластины
+C = sqrt(2);            %C - скорость распространени€ волны
+V_C = V_0^2 - C^2;      
+global dx;
+global dt;
 dx = 0.01;              %h - шаг по длинне
 dt = 0.01;              %tau - шаг по времени
-Lx = 1;                 %длинна между роликами
+L_x = 1;                %длинна между роликами
 D = 1;                  %? - неизвестный параметр
-S = Lx;                 %? - длина пластины(абсолютна€?)
+S = L_x;                %? - длина пластины(абсолютна€?)
 Ro = 1;                 %плотность материала пластины
 m = Ro*S;               %масса на единицу длины пластины
-T0 = 1;                 %продольное напр€жение пластины (на единицу длины)
+T_0 = 1;                %продольное напр€жение пластины (на единицу длины)
+
 T = 1;                  %врем€ (верхн€€ граница)
-X = 0:dx:Lx;            %сетка по длине пластины
+Tarray = 0:dt:T;
+Nt = T/dt+1;            %число слоев повремени
+
+X = 0:dx:L_x;           %сетка по длине пластины
 Nx = size(X, 2);        %число узлов в сетке X
-g_max = 1;              %max управл€ющей функции
-g_max = g_max/m;
-val_g = 0;              %начальное управление
-g = @(t, val) 0;        %управл€юща€ функци€
+g_max = 40;              %max управл€ющей функции
+i_1 = round(Nx/3);
+i_2 = round(Nx/3*2);
+iterations = 2;         %число итераций
 
-%% Direct task
-NewFigure('ѕр€ма€ задача');
+global CalcExtrems      %выводить минимум и максимум
+CalcExtrems = true;
+OnlyQ2 = true;
 
+folder = CreateImageFolder([datestr(now, 'dd-mmm-yyyy HH_MM_SS') '_железо']);
+image_type = '.tiff';
+gif_type = '.gif';
+image_name = 'tmp';
+save_gif = false;
+gif_delay = 1/24;
+
+%% ѕараметры пр€мой задачи
 W = 0.2*sin(pi*X);	    %начальное распределение точек листа
 V = zeros(1,Nx);        %начальное распределение скорости листа
 U = -pi*pi*0.2*sin(pi*X);
-P = [ W; V; U];
-P(:,1) = 0;             %граничное левое
-P(:,Nx) = 0;            %граничное правое
-Alpha = zeros(3,3,Nx);
-Beta = zeros(3,1,Nx);
-nu = dt/(dx^2);
-A = [ 
-        0 0 0; 
-        0 -V0*dt/dx 0; 
-        1 0 0 
-    ];
-B = [ 
-        1 -dt 0; 
-        0 1 (V0^2-c^2)*dt; 
-        -2 0 -dx^2 
-    ];
-C = [ 
-        0 0 0; 
-        0 V0*dt/dx 0; 
-        1 0 0 
-    ];
+A_i =   [   0 0 0; 
+            0 -V_0*dt/dx 0; 
+            1 0 0 
+        ];
+B_i =   [   1 -dt 0; 
+            0 1 V_C*dt; 
+            -2 0 -dx^2
+        ];
+C_i =   [   0 0 0; 
+            0 V_0*dt/dx 0; 
+            1 0 0
+        ];
+L = zeros(3,3,Nx);      %прогоночные коэффициенты пр€мой задачи
+M = zeros(3,1,Nx);      %прогоночные коэффициенты пр€мой задачи
 
-hold all;
-axis([0 Lx -0.2 0.2]);
-grid on;
-plot(0,0, 'w');
-p1 = plot(X,P(1,:));
-set(p1,'LineWidth', 4);
-legend(['t=' num2str(0,tFormatStr)],'W');
-set (p1, 'Xdata', X, 'Ydata', P(1,:));
-drawnow;  
-for i=3:Nx
-    Alpha(:,:,i) = -(A*Alpha(:,:,i-1)+B)\C;
-end
-for t=0:dt:T-dt
-    F = [ P(1,:); P(2,:) + g(t+dt,val_g)*dt; zeros(1,Nx) ];
-    for i=3:Nx
-        Beta(:,1,i) = (A*Alpha(:,:,i-1)+B)\(F(:,i-1)-A*Beta(:,1,i-1));
-    end
-    for i=Nx-1:-1:2
-        P(:,i) = Alpha(:,:,i+1)*P(:,i+1)+Beta(:,1,i+1);
-    end
-    set (p1, 'Xdata', X, 'Ydata', P(1,:));
-    legend(['t=' num2str(t+dt,tFormatStr)],'ѕолотно');
-    drawnow;  
+L(:,:,3) = - B_i \ C_i;
+for i = 4:Nx
+    L(:,:,i) = -(A_i * L(:,:,i-1) + B_i) \ C_i;
 end
 
-%% обратна€ задача
-f = NewFigure('ќбратна€ задача');
-figure(f);
+%% ѕараметры обратной задачи
+dt_ = -dt;
+nu = dt_ / (dx^2);
+A_i_ =  [   0 nu*(-V_C) -nu*D/m; 
+            0 -dt_/dx*V_0 0;                      
+            0 1 0    
+        ];
+B_i_ =  [   1 -2*nu*(-V_C) 2*nu*D/m; 
+            dt_ 1 0; 
+            0 -2 -dx^2 
+        ];
+C_i_ =  [   0 nu*(-V_C) -nu*D/m; 
+            0 dt_/dx*V_0 0;                       
+            0 1 0 
+        ];
+L_ = zeros(3,3,Nx);     %прогоночные коэффициенты обратной задачи
+M_ = zeros(3,1,Nx);     %прогоночные коэффициенты обратной задачи
+Q = zeros(3,Nx);        %вектор значений (q_1, q_2, q_3)
 
-% axis([0 Lx -25 50]);
-q1 = P(3,:)*(T0+Ro*V0^2)+Ro*V0*P(2,:);
-q2 = -Ro*P(2,:);
-for i = 2:Nx-1
-%     q1(i) = q1(i) + Ro*V0*(P(2,i+1)-P(2,i-1))/(2*dx);
-    q2(i) = q2(i)-Ro*V0*(P(1,i+1)-P(1,i-1))/(2*dx);
+L_(:,:,2) = [   0 0 0; 
+                0 0 0; 
+                0 2/(dx^2) 0 
+            ];
+for i = 3:Nx
+    L_(:,:,i) = -(A_i_ * L_(:,:,i-1) + B_i_) \ C_i_;
 end
-Q = [q1; q2; zeros(1,Nx)];
-Q(:,1) = 0;
-Q(:,Nx) = 0;
-Alpha = zeros(3,3,Nx);
-Beta = zeros(3,1,Nx);
-dt = -dt;
-nu = dt/(dx^2);
-A = [ 
-        0 nu*(c^2-V0^2) -nu*D/m; 
-        0 -dt/dx*V0 0;                      
-        0 1 0 
-    ];
-B = [ 
-        1 -2*nu*(c^2-V0^2) 2*nu*D/m; 
-        dt 1 0; 
-        0 -2 -dx^2 
-    ];
-C = [ 
-        0 nu*(c^2-V0^2) -nu*D/m; 
-        0 dt/dx*V0 0;                       
-        0 1 0 
-    ];
-grid on;
-hold all;
-p4 = plot(0,0, 'w');
-p5 = plot(X,Q(1,:));
-p6 = plot(X,Q(2,:));
-%set (p1,'LineWidth', 4);
-legend(['t=' num2str(T,tFormatStr)],'q1','q2');
-drawnow;
-pause(5);
-Npause = 2;
-Alpha(:,:,2) = [ 
-                    0 0 0; 
-                    0 0 0; 
-                    0 2/(dx^2) 0 
-               ];
-for i=3:Nx
-    Alpha(:,:,i) = -(A*Alpha(:,:,i-1)+B)\C;
-end
-for t=T:dt:0-dt
-    F = [ Q(1,:); Q(2,:); zeros(1,Nx) ];
-    for i=3:Nx
-        Beta(:,1,i) = (A*Alpha(:,:,i-1)+B)\(F(:,i-1)-A*Beta(:,1,i-1));
+
+QH = zeros(Nt,Nx);      %тут будут хранитьс€ значени€ q2 в каждый момент времени
+Control = zeros(2,Nt);
+
+%% ÷икл вычислени€
+for k=1:iterations
+    %% ¬ычисление пр€мой задачи
+    [p_1, p_2] = FigurePrepare(Figure, X);
+    axis([0 L_x -1 1]);
+    p_1.LineWidth = 3;
+    P = [W; V; U];         %вектор значений (W, V)
+    P(:,1) = 0;             %граничное левое
+    P(:,Nx) = 0;            %граничное правое
+    SetTwoLinesInPlots(p_1, p_2, P, 0, 'W', 'V');
+    if CalcExtrems == true
+        [Min, Max] = LocalExtrems(P, 0, 0, 1, 'W');
     end
-    Q(3,Nx) = Beta(2,:,Nx)/(dx^2 / 2 - Alpha(2,3,Nx));
-    for i=Nx-1:-1:2
-        Q(:,i) = Alpha(:,:,i+1)*Q(:,i+1)+Beta(:,1,i+1);
+    image_name = num2str(k);
+    if save_gif == true
+        SaveAsGif(folder, [image_name gif_type], gif_delay, 0);
     end
-    set (p5, 'Xdata', X, 'Ydata', Q(1,:));
-    set (p6, 'Xdata', X, 'Ydata', Q(2,:));
-    legend(['t=' num2str(t+dt,tFormatStr)],'q1','q2');
-    if (t > T-abs(dt)*Npause)
-        pause(5);
+    for t = 1:Nt-1
+        F = [   P(1,:); 
+                P(2,:);
+                zeros(1,Nx)
+            ];
+        Control(1,t+1) = AddControlInTwoPoints(QH(t,i_1), 1, g_max);
+        Control(2,t+1) = AddControlInTwoPoints(QH(t,i_2), 2, g_max);
+        F(2,i_1) = F(2,i_1) + dt*Control(1,t+1);
+        F(2,i_2) = F(2,i_2) + dt*Control(2,t+1);
+        M(:,:,3) = B_i \ F(:,2);
+        for i = 4:Nx
+            M(:,:,i) = -(A_i * L(:,:,i-1) + B_i) \ (A_i * M(:,:,i-1) - F(:,i-1));
+        end
+        for i = Nx-1:-1:2
+            P(:,i) = L(:,:,i+1) * P(:,i+1) + M(:,:,i+1);
+        end
+        SetTwoLinesInPlots(p_1, p_2, P, t*dt, 'W', 'V');
+        if CalcExtrems == true
+            [Min, Max] = LocalExtrems(P, Min, Max, 1, 'W');
+        end
+        if save_gif == true
+            SaveAsGif(folder, [image_name gif_type], gif_delay, 1);
+        end
+    end
+    disp([ 'Full energy Ew = ' num2str(PaperFullEnergy(P, T_0, Ro, V_0)) ]);
+    SaveAsGif(folder, [image_name '_itog' image_type], 1, 0);
+    %% ¬ычисление обратной задачи
+    if k ~= iterations
+        [p_1, p_2] = FigurePrepare(Figure, X);
+        axis([0 L_x -1 1]);
+        W_xx = (P(1,1:Nx-2) - 2*P(1,2:Nx-1) + P(1,3:Nx))/dx^2;
+        Q(1,2:Nx-1) = T_0*W_xx ...
+            + Ro*V_0 * ( ...
+                (P(2,3:Nx) - P(2,1:Nx-2))/(2*dx) ...
+                + V_0*W_xx ...                                  
+            );
+        Q(2,2:Nx-1) = -Ro * ( ...
+                P(2,2:Nx-1) + V_0*(P(1,3:Nx) - P(1,1:Nx-2))/(2*dx) ...                              
+            );
+        W_xx = (2*P(1,1) - 5*P(1,2) + 4*P(1,3) - P(1,4))/dx^2;
+        Q(1:1) = T_0*W_xx ...
+            + Ro*V_0 * ( ...
+                (-3/2*P(2,1) + 2*P(2,2) - 1/2*P(2,3))/dx ...
+                + V_0*W_xx ...                                  
+            );
+        Q(2,1) = 0;
+        W_xx = (2*P(1,Nx) - 5*P(1,Nx-1) + 4*P(1,Nx-2) - P(1,Nx-3))/dx^2;
+        Q(1,Nx) = T_0*W_xx ...
+            + Ro*V_0 * ( ...
+                (3/2*P(2,Nx) - 2*P(2,Nx-1) + 1/2*P(2,Nx-2))/dx ...
+                + V_0*W_xx ...                                  
+            );
+        Q(2,Nx) = 0;
+        if OnlyQ2 == true
+            SetTwoLinesInPlots(p_1, p_2, Q, T, 'q2');
+        else
+            SetTwoLinesInPlots(p_1, p_2, Q, T, 'q1', 'q2');
+        end
+        if CalcExtrems == true
+            [Min, Max] = LocalExtrems(Q, 0, 0, 2, 'q2');
+        end
+        QH(Nt,:) = Q(2,:);
+        image_name = ['q_' num2str(k)];
+        if save_gif == true
+            SaveAsGif(folder, [image_name gif_type], gif_delay, 0);
+        end
+        for t=Nt-1:-1:1
+            F = [   Q(1,:); 
+                    Q(2,:); 
+                    zeros(1,Nx)
+                ];
+            for i = 3:Nx
+                M_(:,:,i) = -(A_i_ * L_(:,:,i-1) + B_i_) \ (A_i_ * M_(:,:,i-1) - F(:,i-1));
+            end
+            Q(:,Nx) = 0;
+            Q(3,Nx) = M_(2,1,Nx) / (dx^2 / 2 - L_(2,3,Nx));
+            for i = Nx-1:-1:1
+                Q(:,i) = L_(:,:,i+1) * Q(:,i+1) + M_(:,:,i+1);
+            end
+            Q(1,1) = 0;
+            Q(2,1) = 0;
+            if OnlyQ2 == true
+            	SetTwoLinesInPlots(p_1, p_2, Q, (t-1)*dt, 'q2');
+            else
+                SetTwoLinesInPlots(p_1, p_2, Q, (t-1)*dt, 'q1', 'q2');
+            end
+            if CalcExtrems == true
+                [Min, Max] = LocalExtrems(Q, Min, Max, 2, 'q2');
+            end
+            QH(t,:) = Q(2,:);
+            if save_gif == true
+                SaveAsGif(folder, [image_name gif_type], gif_delay, 1);
+            end
+        end
+        SaveAsGif(folder, [image_name '_itog' image_type], 1, 0);
     else
-        axis([0 Lx -20 25]);
+        FigurePrepare(Figure, Tarray, false);
+        SetTwoLinesInPlots(Control(1,:), Control(2,:), Tarray);
+        SaveAsGif(folder, ['control' image_type], 1, 0);
     end
-    drawnow;
 end
