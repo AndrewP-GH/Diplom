@@ -28,12 +28,13 @@ g_max = 60;              %max управляющей функции
 i_1 = round(Nx/3);
 i_2 = round(Nx/3*2);
 iterations = 2;         %число итераций
+Ymax = 1;
 
 global CalcExtrems      %выводить минимум и максимум
 CalcExtrems = true;
 OnlyQ2 = true;
 
-folder = CreateImageFolder([datestr(now, 'dd-mmm-yyyy HH_MM_SS') '_железо']);
+folder = CreateImageFolder([datestr(now, 'dd-mmm-yyyy HH_MM_SS') '_бумага']);
 image_type = '.tiff';
 gif_type = '.gif';
 image_name = 'tmp';
@@ -43,14 +44,16 @@ gif_delay = 1/24;
 %% Параметры прямой задачи
 P_0 = 0.2*sin(pi*X);	%начальное распределение точек листа
 P_1 = zeros(1,Nx);      %начальное распределение скорости листа
-A_i =   [   0 0; 
-            V_C*dt -V_0*dt*dx
+nu = dt / dx^2;
+mu = dt / dx;
+A_i =   [   0           0; 
+            nu*V_C      -mu*V_0
         ];
-B_i =   [   1 -dt;
-            -2*V_C*dt dx^2
+B_i =   [   1           -dt;
+            -2*nu*V_C   1
         ];
-C_i =   [   0 0; 
-            V_C*dt V_0*dt*dx
+C_i =   [   0           0; 
+            nu*V_C      mu*V_0
         ];
 L = zeros(2,2,Nx);      %прогоночные коэффициенты прямой задачи
 M = zeros(2,1,Nx);      %прогоночные коэффициенты прямой задачи
@@ -62,35 +65,36 @@ end
 
 %% Параметры обратной задачи
 dt_ = -dt;
-nu = dt_ / (dx^2);
-A_i_ =  [   0 nu*(-V_C);
-            0 -V_0*dt_/dx
+nu_ = dt_ / dx^2;
+mu_ = dt_ / dx;
+A_i_ =  [   0	-nu_*V_C;
+            0	-mu_*V_0
         ];
-B_i_ =  [   1 -2*nu*(-V_C);
-            dt_ 1
+B_i_ =  [   1	-2*nu_*(-V_C);
+            dt_	1
         ];
-C_i_ =  [   0 nu*(-V_C);
-            0 V_0*dt_/dx
+C_i_ =  [   0	-nu_*V_C;
+            0	mu_*V_0
         ];
 L_ = zeros(2,2,Nx);     %прогоночные коэффициенты обратной задачи
 M_ = zeros(2,1,Nx);     %прогоночные коэффициенты обратной задачи
 Q = zeros(2,Nx);        %вектор значений (q_1, q_2)
 
-L_(:,:,2) = [   0   (V_0*2/dx^2*V_C) / (V_0/dt_ - V_C/dx);  %поскольку редешие в обратном времени (dt_<0), то аккуратно с V
+L_(:,:,2) = [   0   (2*nu_*V_0*V_C) / (V_0 - mu_*V_C);  %поскольку редешие в обратном времени (dt_<0), то аккуратно с V
                 0   0
             ];
 for i = 3:Nx
     L_(:,:,i) = -(A_i_ * L_(:,:,i-1) + B_i_) \ C_i_;
 end
 
-QH = zeros(Nt,Nx);      %тут будут храниться значения q2 в каждый момент времени
-Control = zeros(2,Nt);
+QH = zeros(Nt,Nx);      %тут будут храниться значения q_2 в каждый момент времени
+Control = zeros(2,Nt);  %тут будут храниться управления в точках i_1 и i_2
 
 %% Цикл вычисления
 for k=1:iterations
     %% Вычисление прямой задачи
     [p_1, p_2] = FigurePrepare(Figure, X);
-    axis([0 L_x -1 1]);
+    axis([0 L_x -Ymax Ymax]);
     p_1.LineWidth = 3;
     P = [P_0; P_1];         %вектор значений (W, V)
     P(:,1) = 0;             %граничное левое
@@ -105,12 +109,12 @@ for k=1:iterations
     end
     for t = 1:Nt-1
         F = [   P(1,:); 
-                dx^2 * P(2,:)
+                P(2,:)
             ];
         Control(1,t+1) = AddControlInTwoPoints(QH(t,i_1), 1, g_max);
         Control(2,t+1) = AddControlInTwoPoints(QH(t,i_2), 2, g_max);
-        F(2,i_1) = F(2,i_1) + dx^2*dt*Control(1,t+1);
-        F(2,i_2) = F(2,i_2) + dx^2*dt*Control(2,t+1);
+        F(2,i_1) = F(2,i_1) + dt*Control(1,t+1);
+        F(2,i_2) = F(2,i_2) + dt*Control(2,t+1);
         M(:,:,3) = B_i \ F(:,2);
         for i = 4:Nx
             M(:,:,i) = -(A_i * L(:,:,i-1) + B_i) \ (A_i * M(:,:,i-1) - F(:,i-1));
@@ -131,7 +135,7 @@ for k=1:iterations
     %% Вычисление обратной задачи
     if k ~= iterations
         [p_1, p_2] = FigurePrepare(Figure, X);
-        axis([0 L_x -1 1]);
+        axis([0 L_x -Ymax Ymax]);
         W_xx = (P(1,1:Nx-2) - 2*P(1,2:Nx-1) + P(1,3:Nx))/dx^2;
         Q(1,2:Nx-1) = T_0*W_xx ...
             + Ro*V_0 * ( ...
@@ -169,14 +173,16 @@ for k=1:iterations
             SaveAsGif(folder, [image_name gif_type], gif_delay, 0);
         end
         for t=Nt-1:-1:1
-            F = [ Q(1,:); Q(2,:)];
-            M_(:,:,2) = [   (V_0/dt_*Q(1,1)) / (V_0/dt_ - V_C/dx);
+            F = [   Q(1,:); 
+                    Q(2,:)
+                ];
+            M_(:,:,2) = [   (V_0 * Q(1,1)) / (V_0 - mu_*V_C);
                             0
                         ];
             for i = 3:Nx
                 M_(:,:,i) = -(A_i_ * L_(:,:,i-1) + B_i_) \ (A_i_ * M_(:,:,i-1) - F(:,i-1));
             end
-            Q(1,Nx) = V_0 * (2/dx^2*V_C*M_(2,1,Nx) + Q(1,Nx)/dt_) / (V_0/dt_ + V_C/dx*(1 - 2/dx*V_0*L_(2,1,Nx)));
+            Q(1,Nx) = V_0 * (Q(1,Nx) + 2*M_(2,1,Nx)*nu_*V_C) / (V_0 + mu_*V_C(1 - 2*L_(2,1,Nx)*V_0)/dx);
             Q(2,Nx) = 0;
             for i = Nx-1:-1:1
                 Q(:,i) = L_(:,:,i+1) * Q(:,i+1) + M_(:,:,i+1);

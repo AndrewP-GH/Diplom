@@ -25,14 +25,15 @@ Nt = T/dt+1;            %число слоев повремени
 
 X = 0:dx:L_x;           %сетка по длине пластины
 Nx = size(X, 2);        %число узлов в сетке X
-g_max = 40;              %max управляющей функции
+g_max = -3000;              %max управляющей функции
 i_1 = round(Nx/3);
 i_2 = round(Nx/3*2);
 iterations = 2;         %число итераций
+Ymax = 2;
 
 global CalcExtrems      %выводить минимум и максимум
 CalcExtrems = true;
-OnlyQ2 = true;
+OnlyQ2 = false;
 
 folder = CreateImageFolder([datestr(now, 'dd-mmm-yyyy HH_MM_SS') '_железо']);
 image_type = '.tiff';
@@ -45,17 +46,19 @@ gif_delay = 1/24;
 W = 0.2*sin(pi*X);	    %начальное распределение точек листа
 V = zeros(1,Nx);        %начальное распределение скорости листа
 U = -pi*pi*0.2*sin(pi*X);
-A_i =   [   0 0 0; 
-            0 -V_0*dt/dx 0; 
-            1 0 0 
+nu = dt / dx^2;
+mu = dt / dx;
+A_i =   [   0       0       0; 
+            nu*V_C  -mu*V_0 nu*D/m; 
+            1       0       0 
         ];
-B_i =   [   1 -dt 0; 
-            0 1 V_C*dt; 
-            -2 0 -dx^2
+B_i =   [   1           -dt	0; 
+            -2*nu*V_C   1	-2*nu*D/m; 
+            -2          0   -dx^2
         ];
-C_i =   [   0 0 0; 
-            0 V_0*dt/dx 0; 
-            1 0 0
+C_i =   [   0       0       0; 
+            nu*V_C  mu*V_0  nu*D/m; 
+            1       0       0 
         ];
 L = zeros(3,3,Nx);      %прогоночные коэффициенты прямой задачи
 M = zeros(3,1,Nx);      %прогоночные коэффициенты прямой задачи
@@ -67,26 +70,27 @@ end
 
 %% Параметры обратной задачи
 dt_ = -dt;
-nu = dt_ / (dx^2);
-A_i_ =  [   0 nu*(-V_C) -nu*D/m; 
-            0 -dt_/dx*V_0 0;                      
-            0 1 0    
+nu_ = dt_ / dx^2;
+mu_ = dt_ / dx;
+A_i_ =  [   0	nu_*(-V_C)	-nu_*D/m; 
+            0	-mu_*V_0	0;                      
+            0	1           0    
         ];
-B_i_ =  [   1 -2*nu*(-V_C) 2*nu*D/m; 
-            dt_ 1 0; 
-            0 -2 -dx^2 
+B_i_ =  [   1   2*nu_*V_C	2*nu_*D/m; 
+            dt_	1           0; 
+            0   -2          -dx^2 
         ];
-C_i_ =  [   0 nu*(-V_C) -nu*D/m; 
-            0 dt_/dx*V_0 0;                       
-            0 1 0 
+C_i_ =  [   0	nu_*(-V_C)	-nu_*D/m; 
+            0	mu_*V_0     0;                      
+            0	1           0  
         ];
 L_ = zeros(3,3,Nx);     %прогоночные коэффициенты обратной задачи
 M_ = zeros(3,1,Nx);     %прогоночные коэффициенты обратной задачи
 Q = zeros(3,Nx);        %вектор значений (q_1, q_2, q_3)
 
-L_(:,:,2) = [   0 0 0; 
-                0 0 0; 
-                0 2/(dx^2) 0 
+L_(:,:,2) = [   0 0      0; 
+                0 0      0; 
+                0 2/dx^2 0 
             ];
 for i = 3:Nx
     L_(:,:,i) = -(A_i_ * L_(:,:,i-1) + B_i_) \ C_i_;
@@ -99,7 +103,7 @@ Control = zeros(2,Nt);
 for k=1:iterations
     %% Вычисление прямой задачи
     [p_1, p_2] = FigurePrepare(Figure, X);
-    axis([0 L_x -1 1]);
+    axis([0 L_x -Ymax Ymax]);
     p_1.LineWidth = 3;
     P = [W; V; U];         %вектор значений (W, V)
     P(:,1) = 0;             %граничное левое
@@ -141,29 +145,20 @@ for k=1:iterations
     %% Вычисление обратной задачи
     if k ~= iterations
         [p_1, p_2] = FigurePrepare(Figure, X);
-        axis([0 L_x -1 1]);
+        axis([0 L_x -Ymax Ymax]);
         W_xx = (P(1,1:Nx-2) - 2*P(1,2:Nx-1) + P(1,3:Nx))/dx^2;
-        Q(1,2:Nx-1) = T_0*W_xx ...
-            + Ro*V_0 * ( ...
-                (P(2,3:Nx) - P(2,1:Nx-2))/(2*dx) ...
-                + V_0*W_xx ...                                  
-            );
+        Q(1,2:Nx-1) = (T_0 + Ro*V_0^2) * W_xx ...
+            + Ro*V_0 * (P(2,3:Nx) - P(2,1:Nx-2))/(2*dx);
         Q(2,2:Nx-1) = -Ro * ( ...
                 P(2,2:Nx-1) + V_0*(P(1,3:Nx) - P(1,1:Nx-2))/(2*dx) ...                              
             );
         W_xx = (2*P(1,1) - 5*P(1,2) + 4*P(1,3) - P(1,4))/dx^2;
-        Q(1:1) = T_0*W_xx ...
-            + Ro*V_0 * ( ...
-                (-3/2*P(2,1) + 2*P(2,2) - 1/2*P(2,3))/dx ...
-                + V_0*W_xx ...                                  
-            );
+        Q(1:1) = (T_0 + Ro*V_0^2) * W_xx ...
+            + Ro*V_0 * (-3/2*P(2,1) + 2*P(2,2) - 1/2*P(2,3))/dx;
         Q(2,1) = 0;
         W_xx = (2*P(1,Nx) - 5*P(1,Nx-1) + 4*P(1,Nx-2) - P(1,Nx-3))/dx^2;
-        Q(1,Nx) = T_0*W_xx ...
-            + Ro*V_0 * ( ...
-                (3/2*P(2,Nx) - 2*P(2,Nx-1) + 1/2*P(2,Nx-2))/dx ...
-                + V_0*W_xx ...                                  
-            );
+        Q(1,Nx) = (T_0 + Ro*V_0^2) * W_xx ...
+            + Ro*V_0 * (3/2*P(2,Nx) - 2*P(2,Nx-1) + 1/2*P(2,Nx-2))/dx;
         Q(2,Nx) = 0;
         if OnlyQ2 == true
             SetTwoLinesInPlots(p_1, p_2, Q, T, 'q2');
@@ -187,7 +182,7 @@ for k=1:iterations
                 M_(:,:,i) = -(A_i_ * L_(:,:,i-1) + B_i_) \ (A_i_ * M_(:,:,i-1) - F(:,i-1));
             end
             Q(:,Nx) = 0;
-            Q(3,Nx) = M_(2,1,Nx) / (dx^2 / 2 - L_(2,3,Nx));
+            Q(3,Nx) = (2 * M_(2,1,Nx)) / (dx^2 - 2*L_(2,3,Nx));
             for i = Nx-1:-1:1
                 Q(:,i) = L_(:,:,i+1) * Q(:,i+1) + M_(:,:,i+1);
             end
