@@ -33,13 +33,13 @@ Ymax = 2;
 
 global CalcExtrems      %выводить минимум и максимум
 CalcExtrems = true;
-OnlyQ2 = false;
+OnlyQ2 = true;
 
 folder = CreateImageFolder([datestr(now, 'dd-mmm-yyyy HH_MM_SS') '_железо']);
 image_type = '.tiff';
 gif_type = '.gif';
 image_name = 'tmp';
-save_gif = false;
+save_gif = true;
 gif_delay = 1/24;
 
 %% Параметры прямой задачи

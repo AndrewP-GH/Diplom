@@ -38,7 +38,7 @@ folder = CreateImageFolder([datestr(now, 'dd-mmm-yyyy HH_MM_SS') '_бумага']);
 image_type = '.tiff';
 gif_type = '.gif';
 image_name = 'tmp';
-save_gif = false;
+save_gif = true;
 gif_delay = 1/24;
 
 %% Параметры прямой задачи
