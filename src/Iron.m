@@ -141,7 +141,7 @@ for k=1:iterations
         end
     end
     disp([ 'Full energy Ew = ' num2str(PaperFullEnergy(P, T_0, Ro, V_0)) ]);
-    SaveAsGif(folder, [image_name '_itog' image_type], 1, 0);
+    SaveAsGif(folder, [image_name '_end' image_type], 1, 0);
     %% Вычисление обратной задачи
     if k ~= iterations
         [p_1, p_2] = FigurePrepare(Figure, X);
@@ -201,7 +201,7 @@ for k=1:iterations
                 SaveAsGif(folder, [image_name gif_type], gif_delay, 1);
             end
         end
-        SaveAsGif(folder, [image_name '_itog' image_type], 1, 0);
+        SaveAsGif(folder, [image_name '_end' image_type], 1, 0);
     else
         FigurePrepare(Figure, Tarray, false);
         SetTwoLinesInPlots(Control(1,:), Control(2,:), Tarray);

@@ -1,4 +1,4 @@
-clearvars; clc; close all;
+clearvars; close all;
 addpath('./Functions');
 Figure = NewFigure('Бумага');
 
@@ -12,19 +12,20 @@ global dx;
 global dt;
 dx = 0.01;              %h - шаг по длинне
 dt = 0.01;              %tau - шаг по времени
+s_dt = Significant(dt);
 L_x = 1;                %длинна между роликами
 S = L_x;                %? - длина пластины(абсолютная?)
 Ro = 1;                 %плотность материала пластины
 m = Ro*S;               %масса на единицу длины пластины
 T_0 = 1;                %продольное напряжение пластины (на единицу длины)
 
-T = 1;                  %время (верхняя граница)
+T = Roundx(2*L_x*C/(-V_C), s_dt, 'ceil');                  %время (верхняя граница)
 Tarray = 0:dt:T;
-Nt = T/dt+1;            %число слоев повремени
+Nt = length(Tarray);    %число слоев повремени
 
 X = 0:dx:L_x;           %сетка по длине пластины
 Nx = size(X, 2);        %число узлов в сетке X
-g_max = 60;              %max управляющей функции
+g_max = 50;              %max управляющей функции
 i_1 = round(Nx/3);
 i_2 = round(Nx/3*2);
 iterations = 2;         %число итераций
@@ -38,7 +39,7 @@ folder = CreateImageFolder([datestr(now, 'dd-mmm-yyyy HH_MM_SS') '_бумага']);
 image_type = '.tiff';
 gif_type = '.gif';
 image_name = 'tmp';
-save_gif = true;
+save_gif = false;
 gif_delay = 1/24;
 
 %% Параметры прямой задачи
@@ -86,7 +87,7 @@ L_(:,:,2) = [   0   (2*nu_*V_0*V_C) / (V_0 - mu_*V_C);  %поскольку редешие в обр
 for i = 3:Nx
     L_(:,:,i) = -(A_i_ * L_(:,:,i-1) + B_i_) \ C_i_;
 end
-
+Ew = zeros(1,iterations);
 QH = zeros(Nt,Nx);      %тут будут храниться значения q_2 в каждый момент времени
 Control = zeros(2,Nt);  %тут будут храниться управления в точках i_1 и i_2
 
@@ -115,6 +116,7 @@ for k=1:iterations
         Control(2,t+1) = AddControlInTwoPoints(QH(t,i_2), 2, g_max);
         F(2,i_1) = F(2,i_1) + dt*Control(1,t+1);
         F(2,i_2) = F(2,i_2) + dt*Control(2,t+1);
+              
         M(:,:,3) = B_i \ F(:,2);
         for i = 4:Nx
             M(:,:,i) = -(A_i * L(:,:,i-1) + B_i) \ (A_i * M(:,:,i-1) - F(:,i-1));
@@ -130,8 +132,9 @@ for k=1:iterations
             SaveAsGif(folder, [image_name gif_type], gif_delay, 1);
         end
     end
-    disp([ 'Full energy Ew = ' num2str(PaperFullEnergy(P, T_0, Ro, V_0)) ]);
-    SaveAsGif(folder, [image_name '_itog' image_type], 1, 0);
+    Ew(k) = PaperFullEnergy(P, T_0, Ro, V_0);
+    disp([ 'Full energy Ew = ' num2str(Ew(k)) ]);
+    SaveAsGif(folder, [image_name '_end' image_type], 1, 0);
     %% Вычисление обратной задачи
     if k ~= iterations
         [p_1, p_2] = FigurePrepare(Figure, X);
@@ -201,10 +204,16 @@ for k=1:iterations
                 SaveAsGif(folder, [image_name gif_type], gif_delay, 1);
             end
         end
-        SaveAsGif(folder, [image_name '_itog' image_type], 1, 0);
+        SaveAsGif(folder, [image_name '_end' image_type], 1, 0);
     else
         FigurePrepare(Figure, Tarray, false);
         SetTwoLinesInPlots(Control(1,:), Control(2,:), Tarray);
+        axis tight;
+        box on;
+        title({
+            strcat('Ew_{нач.} =', [' ' num2str(Ew(1))])
+            strcat('Ew_{опт.} =', [' ' num2str(Ew(k))])
+        });
         SaveAsGif(folder, ['control' image_type], 1, 0);
     end
 end

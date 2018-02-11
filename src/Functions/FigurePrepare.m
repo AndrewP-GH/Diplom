@@ -17,5 +17,6 @@ function [p_1, p_2] = FigurePrepare(Figure, X, draw_line)
         ' '
         ' '});
     end
+    set(gcf,'color','w');
 end
 
