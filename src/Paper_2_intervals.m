@@ -113,16 +113,8 @@ for k=1:iterations
         F = [   P(1,:); 
                 P(2,:)
             ];
-        x1 = 1 : round(Nx/2);
-        x2 = round(Nx/2)+1 : Nx;
-        integral = trapz(X(x1), QH(t,x1));
-        if integral > 0
-            Control(t, x1) = g_max;
-        end
-        integral = trapz(X(x2), QH(t,x2));
-        if integral < 0
-            Control(t, x2) = -g_max;
-        end 
+        intervals = [ {1 : round(Nx/2)}; {round(Nx/2)+1 : Nx}];
+        Control(t,:) = AddControlOnInterval(intervals, X, QH(t,:), g_max);
         F(2,:) = F(2,:) + dt*Control(t,:);
               
         M(:,:,3) = B_i \ F(:,2);
@@ -140,7 +132,7 @@ for k=1:iterations
             SaveAsGif(folder, [image_name gif_type], gif_delay, 1);
         end
     end
-    Ew(k) = PaperFullEnergy(P, T_0, Ro, V_0);
+    Ew(k) = PaperFullEnergy(P, T_0, Ro, V_0, X);
     disp([ 'Full energy Ew = ' num2str(Ew(k)) ]);
     SaveAsGif(folder, [image_name '_end' image_type], 1, 0);
     %% Вычисление обратной задачи
@@ -231,10 +223,7 @@ for k=1:iterations
         colormap(newmap);
         colorbar;
         view(0,90);
-        title({
-            strcat('Ew_{нач.} =', [' ' num2str(Ew(1))])
-            strcat('Ew_{опт.} =', [' ' num2str(Ew(k))])
-        });
+        FullEnergyTitle(Ew, k);
         SaveAsGif(folder, ['control' image_type], 1, 0);
     end
 end

@@ -132,7 +132,7 @@ for k=1:iterations
             SaveAsGif(folder, [image_name gif_type], gif_delay, 1);
         end
     end
-    Ew(k) = PaperFullEnergy(P, T_0, Ro, V_0);
+    Ew(k) = PaperFullEnergy(P, T_0, Ro, V_0, X);
     disp([ 'Full energy Ew = ' num2str(Ew(k)) ]);
     SaveAsGif(folder, [image_name '_end' image_type], 1, 0);
     %% Вычисление обратной задачи
@@ -210,10 +210,7 @@ for k=1:iterations
         SetTwoLinesInPlots(Control(1,:), Control(2,:), Tarray);
         axis tight;
         box on;
-        title({
-            strcat('Ew_{нач.} =', [' ' num2str(Ew(1))])
-            strcat('Ew_{опт.} =', [' ' num2str(Ew(k))])
-        });
+        FullEnergyTitle(Ew, k);
         SaveAsGif(folder, ['control' image_type], 1, 0);
     end
 end

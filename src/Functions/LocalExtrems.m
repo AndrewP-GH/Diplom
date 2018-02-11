@@ -8,10 +8,11 @@ function [Min, Max] = LocalExtrems( Values, Min, Max, Raw, Name )
         Max = LocalMax;
     end
     global FormatStr;
-    title({
+    t = title({
         ['Min (' Name ') = ' num2str(Min,FormatStr)]
         ['LocalMin (' Name ') = ' num2str(LocalMin,FormatStr)]
         ['Max (' Name ') = ' num2str(Max,FormatStr)]
-        ['LocalMax (' Name ') = ' num2str(LocalMax,FormatStr)]})
+        ['LocalMax (' Name ') = ' num2str(LocalMax,FormatStr)]});
+    set(t, 'horizontalAlignment', 'left');
 end
 
