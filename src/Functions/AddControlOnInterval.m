@@ -5,10 +5,15 @@ function [ Control ] = AddControlOnInterval( intervals, X, QH, g_max)
         int = cell2mat(intervals(i));
         integral = trapz(X(int), QH(int));
         m = mod(i,2);
-        if m == 1 && integral > 0
-            Control(int) = g_max;
-        elseif m == 0 && integral < 0
-            Control(int) = -g_max;
+        switch m
+            case 1 
+                if integral > 0
+                    Control(int) = g_max;
+                end
+            case 0 
+                if integral < 0
+                    Control(int) = -g_max;
+                end
         end 
     end
 end
