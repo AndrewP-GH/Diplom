@@ -1,6 +1,7 @@
 clearvars; close all;
 addpath('./Functions');
 Figure = NewFigure('Бумага');
+warning off;
 
 %% Общие параметры задачи
 global FormatStr        %формат вывода времени на графике

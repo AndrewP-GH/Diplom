@@ -1,6 +1,7 @@
-clearvars; clc; close all;
+clearvars; close all;
 addpath('./Functions');
 Figure = NewFigure('Железо');
+warning off;
 
 %% Общие параметры задачи
 global FormatStr        %формат вывода времени на графике
@@ -21,11 +22,16 @@ T_0 = 1;                %продольное напряжение пластины (на единицу длины)
 
 T = 1;                  %время (верхняя граница)
 Tarray = 0:dt:T;
-Nt = T/dt+1;            %число слоев повремени
+Nt = length(Tarray);    %число слоев повремени
 
 X = 0:dx:L_x;           %сетка по длине пластины
 Nx = size(X, 2);        %число узлов в сетке X
-g_max = -3000;              %max управляющей функции
+g = 0;
+g_min = 0;
+g_max = 5000;             %max управляющей функции
+h_g = 100;
+Ew_max = 0.0001;
+Eps_Ew = 0.00001;
 i_1 = round(Nx/3);
 i_2 = round(Nx/3*2);
 iterations = 2;         %число итераций
@@ -95,13 +101,19 @@ L_(:,:,2) = [   0 0      0;
 for i = 3:Nx
     L_(:,:,i) = -(A_i_ * L_(:,:,i-1) + B_i_) \ C_i_;
 end
-
-QH = zeros(Nt,Nx);      %тут будут храниться значения q2 в каждый момент времени
-Control = zeros(2,Nt);
+Ew = zeros(1,iterations);
+g_values = zeros(1,iterations);
+QH = zeros(Nt,Nx);      %тут будут храниться значения q_2 в каждый момент времени
+Control = zeros(Nt,Nx);
+prevControl = zeros(Nt,Nx);
 
 %% Цикл вычисления
-for k=1:iterations
+k = 1;
+iter_in_g = 0;      %число итераций внутри границ [g_min,g_max]
+l2r = true;
+while k ~= iterations+1
     %% Вычисление прямой задачи
+    prevControl = Control;
     [p_1, p_2] = FigurePrepare(Figure, X);
     axis([0 L_x -Ymax Ymax]);
     p_1.LineWidth = 3;
@@ -121,8 +133,8 @@ for k=1:iterations
                 P(2,:);
                 zeros(1,Nx)
             ];
-        Control(1,t+1) = AddControlInTwoPoints(QH(t,i_1), 1, g_max);
-        Control(2,t+1) = AddControlInTwoPoints(QH(t,i_2), 2, g_max);
+        Control(1,t+1) = AddControlInTwoPoints(QH(t,i_1), 1, -g);
+        Control(2,t+1) = AddControlInTwoPoints(QH(t,i_2), 2, -g);
         F(2,i_1) = F(2,i_1) + dt*Control(1,t+1);
         F(2,i_2) = F(2,i_2) + dt*Control(2,t+1);
         M(:,:,3) = B_i \ F(:,2);
@@ -140,10 +152,42 @@ for k=1:iterations
             SaveAsGif(folder, [image_name gif_type], gif_delay, 1);
         end
     end
-    disp([ 'Full energy Ew = ' num2str(PaperFullEnergy(P, T_0, Ro, V_0)) ]);
+    Ew(k) = PaperFullEnergy(P, T_0, Ro, V_0, X);
+    g_values(k) = g;
+    disp([ 'Full energy Ew = ' num2str(Ew(k)) '; g = ' num2str(g)]);
+    iter_in_g = iter_in_g+1;
+    if Ew(k) >= Ew_max && (k == 1 || abs( Ew(k) - Ew(k-1) ) >= Eps_Ew )% && h_g >= 0.001 && g ~= g_max && (g ~= g_min || k == 1)     %если эта энергея еще слишком велика, в сл g==g_max тек энергия минимальна
+        if (iter_in_g == 2 && Ew(k-1) < Ew(k)) || ...
+                (iter_in_g > 2 && Ew(k-2) > Ew(k-1) && Ew(k-1) < Ew(k))     %опт упр м/у g_min и g_max => новые границы
+            if l2r
+                g_min = g - h_g;
+                g_max = g;
+                if iter_in_g > 2
+                    g_min = g_min - h_g; 
+                end
+            else
+                g_min = g;
+                g_max = g + h_g;
+                if iter_in_g > 2
+                    g_max = g_max + h_g; 
+                end
+            end
+            h_g = h_g / 5;
+            l2r = ~l2r;
+            iter_in_g = 0;
+        end
+        if h_g >= 0.01 && (iter_in_g == 0 || (g < g_max && g > g_min))
+            iterations = iterations + 1;
+        end
+       	if l2r
+            g = g + h_g;
+        else
+            g = g - h_g;
+        end       
+    end
     SaveAsGif(folder, [image_name '_end' image_type], 1, 0);
     %% Вычисление обратной задачи
-    if k ~= iterations
+    if k == 1   %k ~= iterations
         [p_1, p_2] = FigurePrepare(Figure, X);
         axis([0 L_x -Ymax Ymax]);
         W_xx = (P(1,1:Nx-2) - 2*P(1,2:Nx-1) + P(1,3:Nx))/dx^2;
@@ -202,9 +246,16 @@ for k=1:iterations
             end
         end
         SaveAsGif(folder, [image_name '_end' image_type], 1, 0);
-    else
+    elseif k == iterations
+        if Ew(k-1) < Ew(k)
+            Control = prevControl;
+            k = k-1;
+        end
         FigurePrepare(Figure, Tarray, false);
         SetTwoLinesInPlots(Control(1,:), Control(2,:), Tarray);
         SaveAsGif(folder, ['control' image_type], 1, 0);
+        FullEnergyTitle(Ew, k);
+        SaveAsGif(folder, ['control' image_type], 1, 0);
     end
+    k = k+1;
 end
